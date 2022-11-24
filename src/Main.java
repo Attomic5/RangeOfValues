@@ -1,9 +1,10 @@
 import java.util.*;
+import java.util.concurrent.*;
 
 public class Main {
 
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, ExecutionException, Exception {
         String[] texts = new String[25];
         for (int i = 0; i < texts.length; i++) {
             texts[i] = generateText("aab", 30_000);
@@ -11,11 +12,13 @@ public class Main {
 
         long startTs = System.currentTimeMillis(); // start time
 
-        List<Thread> threads = new ArrayList<>();
+        final ExecutorService threadPool = Executors.newFixedThreadPool(4);
+
+        List<Future> tasks = new ArrayList<>();
 
         for (String text : texts) {
 
-            Runnable logic = () -> {
+            Callable<Integer> myCallable = () -> {
                 int maxSize = 0;
                 for (int i = 0; i < text.length(); i++) {
                     for (int j = 0; j < text.length(); j++) {
@@ -35,16 +38,23 @@ public class Main {
                     }
                 }
                 System.out.println(text.substring(0, 100) + " -> " + maxSize);
+                return maxSize;
             };
-            Thread thread = new Thread(logic);
-            threads.add(thread);
-            thread.start();
 
+            Future<Integer> task = threadPool.submit(myCallable);
+            tasks.add(task);
         }
 
-        for (Thread thread : threads) {
-            thread.join(); // зависаем, ждём когда поток объект которого лежит в thread завершится
+        threadPool.shutdown();
+
+        Integer max = 0;
+        for (Future<Integer> task : tasks) {
+            if (max == 0 || max < task.get()) {
+                max = task.get();
+            }
         }
+        System.out.println("Максимальный интервал значений среди всех строк - " + max);
+
 
         long endTs = System.currentTimeMillis(); // end time
 
